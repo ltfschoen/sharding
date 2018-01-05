@@ -51,7 +51,7 @@ We first define a "collation header" as an RLP list with the following values:
         period_start_prevhash: bytes32,
         parent_collation_hash: bytes32,
         tx_list_root: bytes32,
-        coinbase: address,                  # address chosen by creator of Shard Header
+        coinbase: address,
         post_state_root: bytes32,
         receipts_root: bytes32,
         sig: bytes
@@ -61,9 +61,10 @@ Where:
 
 -   `shard_id` is the shard ID of the shard;
 -   `expected_period_number` is the period number in which this collation expects to be included; this is calculated as `period_number = floor(block.number / PERIOD_LENGTH)`;
--   `period_start_prevhash` is the block hash of the last block `PERIOD_LENGTH * expected_period_number - 1` (i.e., it is the hash of the last block before the expected period starts). Opcodes in the shard that refer to block data (e.g. NUMBER and DIFFICULTY) will refer to the data of this block, with the exception of COINBASE, which will refer to the shard coinbase;
+-   `period_start_prevhash` is the block hash of the block `PERIOD_LENGTH * expected_period_number - 1` (i.e., it is the hash of the last block before the expected period starts). Opcodes in the shard that refer to block data (e.g. NUMBER and DIFFICULTY) will refer to the data of this block, with the exception of COINBASE, which will refer to the shard coinbase;
 -   `parent_collation_hash` is the hash of the parent collation;
 -   `tx_list_root` is the root hash of the trie holding the transactions included in this collation;
+-   `coinbase` is the address chosen by creator of Shard Header
 -   `post_state_root` is the new state root of the shard after this collation;
 -   `receipts_root` is the root hash of the receipt trie; and
 -   `sig` is a signature.
