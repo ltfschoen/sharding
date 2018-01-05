@@ -4,7 +4,7 @@ The purpose of this document is to provide a reasonably complete specification a
 
 Suppose that the variable `c` denotes the level of computational power available to one node. In a simple blockchain, the transaction capacity is bounded by O(c), as every node must process every transaction. The goal of quadratic sharding is to increase the capacity with a two-layer design. Stage 1 requires no hard forks; the main chain stays exactly as is. However, a contract is published to the main chain called the **validator manager contract** (VMC), which maintains the sharding system. There are O(c) **shards** (currently, 100), where each shard is like a separate "galaxy": it has its own account space, transactions need to specify which shard they are to be published inside, and communication between shards is very limited (in fact, in phase 1, it is nonexistent).
 
-The shards are run on a simple longest-chain-rule proof of stake system, where the stake is on the main chain (specifically, inside the VMC). All shards share a common validator pool; this also means that anyone who signs up with the VMC as a validator could theoretically at any time be assigned the right to create a block on any shard. Each shard has a block size/gas limit of O(c), and so the total capacity of the system is O(c^2).
+The shards are run on a simple longest-chain-rule proof of stake system, where the stake is on the main chain (specifically, inside the VMC). All shards share a common validator pool; this also means that anyone who signs up with the VMC as a validator could theoretically at any time become a collator who is assigned the right to create a collation on a specific shard. Each shard has a block size/gas limit of O(c), and so the total capacity of the system is O(c^2).
 
 Most users of the sharding system will run both (i) either a full (O(c) resource requirements) or light (O(log(c)) resource requirements) node on the main chain, and (ii) a "shard client" which talks to the main chain node via RPC (this client is assumed to be trusted because it's also running on the user's computer) and which can also be used as a light client for any shard, as a full client for any specific shard (the user would have to specify that they are "watching" a specific shard) or as a validator node. In all cases, the storage and computation requirements for a shard client will also not exceed O(c) (unless the user chooses to specify that they are watching _every_ shard; block explorers and large exchanges may want to do this).
 
@@ -34,7 +34,7 @@ We assume that at address `VALIDATOR_MANAGER_ADDRESS` (on the existing "main sha
 -   `deposit(address validationCodeAddr, address returnAddr) returns uint256`: adds a validator to the validator set, with the validator's size being the `msg.value` (i.e., the amount of ETH deposited) in the function call. This function returns the validator index. `validationCodeAddr` stores the address of the validation code, which is expected to store a pure function which expects as an input a 32 byte hash followed by a signature, and returns 1 if the signature matches the hash and otherwise returns 0; the function fails if this address's code has not been purity-verified.
 -   `withdraw(uint256 validatorIndex, bytes sig) returns bool`: verifies that the signature is correct (i.e., a call with 200000 gas, `validationCodeAddr` as destination, 0 value and `sha3("withdraw") + sig` as data returns 1), and if it is, it removes the validator from the validator set and refunds the deposited ETH.
 -   `getEligibleProposer(uint256 shardId, uint256 period) returns address`: uses a block hash as a seed to pseudorandomly select a signer from the validator set. The chance of being selected should be proportional to the validator's deposit. The function should be able to return a value for the current period or any future period up to `LOOKAHEAD_PERIODS` periods ahead.
--   `addHeader(bytes header) returns bool`: attempts to process a collation header, returns True on success, reverts on failure.
+-   `addHeader(bytes collationHeader) returns bool`: attempts to process a collation header, returns True on success, reverts on failure.
 -   `getShardHead(uint256 shardId) returns bytes32`: returns the header hash that is the head of a given shard as perceived by the manager contract.
 
 There is also one log type:
@@ -51,7 +51,7 @@ We first define a "collation header" as an RLP list with the following values:
         period_start_prevhash: bytes32,
         parent_collation_hash: bytes32,
         tx_list_root: bytes32,
-        coinbase: address,
+        coinbase: address,                  # address chosen by creator of Shard Header
         post_state_root: bytes32,
         receipts_root: bytes32,
         sig: bytes
@@ -61,7 +61,7 @@ Where:
 
 -   `shard_id` is the shard ID of the shard;
 -   `expected_period_number` is the period number in which this collation expects to be included; this is calculated as `period_number = floor(block.number / PERIOD_LENGTH)`;
--   `period_start_prevhash` is the block hash of block `PERIOD_LENGTH * expected_period_number - 1` (i.e., it is the hash of the last block before the expected period starts). Opcodes in the shard that refer to block data (e.g. NUMBER and DIFFICULTY) will refer to the data of this block, with the exception of COINBASE, which will refer to the shard coinbase;
+-   `period_start_prevhash` is the block hash of the last block `PERIOD_LENGTH * expected_period_number - 1` (i.e., it is the hash of the last block before the expected period starts). Opcodes in the shard that refer to block data (e.g. NUMBER and DIFFICULTY) will refer to the data of this block, with the exception of COINBASE, which will refer to the shard coinbase;
 -   `parent_collation_hash` is the hash of the parent collation;
 -   `tx_list_root` is the root hash of the trie holding the transactions included in this collation;
 -   `post_state_root` is the new state root of the shard after this collation;
@@ -249,7 +249,7 @@ def main(shard_id):
 
 `fetch_and_verify_collation(c)` involves fetching the full data of `c` (including witnesses) from the shard network, and verifying it. The above algorithm is equivalent to "pick the longest valid chain, check validity as far as possible, and if you find it's invalid then switch to the next-highest-scoring valid chain you know about". The algorithm should only stop when the validator runs out of time and it is time to create the collation. Every execution of `fetch_and_verify_collation` should also return a "write set" (see stateless client section above). Save all of these write sets, and combine them together; this is the `recent_trie_nodes_db`.
 
-We can now define `UPDATE_WITNESS(tx, recent_trie_nodes_db)`. While running `GUESS_HEAD`, a node will have received some transactions. When it comes time to (attempt to) include a transaction into a collation, this algorithm will need to be run on the transaction first. Suppose that the transaction has an access list `[A1 ... An]`, and a witness `W`. For each `Ai`, use the current state tree root and get the Merkle branch for `Ai`, using the union of `recent_trie_nodes_db` and `W` as a database. If the original `W` was correct, and the transaction was sent not before the time that the client checked back to, then getting this Merkle branch will always succeed. After including the transaction into a collation, the "write set" from the state change should then also be added into the `recent_trie_nodes_db`.
+We can now define `UPDATE_WITNESS(tx, recent_trie_nodes_db)`. While running `GUESS_HEAD`, a node will have received some transactions. When it comes time to (attempt to) include a transaction into a collation, this algorithm will need to be run on the transaction first. Suppose that the transaction has an access list `[A1 ... An]`, and a witness `W`. For each `Ai`, use the current state tree root and get the Merkle branch for `Ai`, using the union of `recent_trie_nodes_db` and `W` as a database. If the original `W` was correct, and the transaction was not sent before the time that the client checked back to, then getting this Merkle branch will always succeed. After including the transaction into a collation, the "write set" from the state change should then also be added into the `recent_trie_nodes_db`.
 
 Next, we have `CREATE_COLLATION`. For illustration, here is full pseudocode for a possible transaction-gathering part of this method.
 
@@ -257,11 +257,12 @@ Next, we have `CREATE_COLLATION`. For illustration, here is full pseudocode for 
 # Sort by descending order of gasprice
 txpool = sorted(copy(available_transactions), key=-tx.gasprice)
 collation = new Collation(...)
+remaining_gas = GASLIMIT - collation.gasused
 while len(txpool) > 0:
     # Remove txs that ask for too much gas
     i = 0
     while i < len(txpool):
-        if txpool[i].startgas > GASLIMIT - collation.gasused:
+        if txpool[i].startgas > remaining_gas:
             txpool.pop(i)
         else:
             i += 1
