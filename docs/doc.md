@@ -61,7 +61,7 @@ Where:
 
 -   `shard_id` is the shard ID of the shard;
 -   `expected_period_number` is the period number in which this collation expects to be included; this is calculated as `period_number = floor(block.number / PERIOD_LENGTH)`;
--   `period_start_prevhash` is the block hash of the block `PERIOD_LENGTH * expected_period_number - 1` (i.e., it is the hash of the last block before the expected period starts). Opcodes in the shard that refer to block data (e.g. NUMBER and DIFFICULTY) will refer to the data of this block, with the exception of COINBASE, which will refer to the shard coinbase;
+-   `period_start_prevhash` is the block hash of block `PERIOD_LENGTH * expected_period_number - 1` (i.e., it is the hash of the last block before the expected period starts). Opcodes in the shard that refer to block data (e.g. NUMBER and DIFFICULTY) will refer to the data of this block, with the exception of COINBASE, which will refer to the shard coinbase;
 -   `parent_collation_hash` is the hash of the parent collation;
 -   `tx_list_root` is the root hash of the trie holding the transactions included in this collation;
 -   `coinbase` is the address chosen by creator of Shard Header
@@ -258,10 +258,10 @@ Next, we have `CREATE_COLLATION`. For illustration, here is full pseudocode for 
 # Sort by descending order of gasprice
 txpool = sorted(copy(available_transactions), key=-tx.gasprice)
 collation = new Collation(...)
-remaining_gas = GASLIMIT - collation.gasused
 while len(txpool) > 0:
     # Remove txs that ask for too much gas
     i = 0
+    remaining_gas = GASLIMIT - collation.gasused
     while i < len(txpool):
         if txpool[i].startgas > remaining_gas:
             txpool.pop(i)

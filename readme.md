@@ -17,13 +17,13 @@ Please refer to [pyethereum - Developer-Notes](https://github.com/ethereum/pyeth
 
   2. [Setup Git Version Control](https://help.github.com/articles/fork-a-repo/#step-1-set-up-git)
 
-  2. [Clone](https://help.github.com/articles/fork-a-repo/#step-2-create-a-local-clone-of-your-fork) your fork of this repository. Replace `<YOUR_GITHUB_USERNAME>` below with your Github username.
+  3. [Clone](https://help.github.com/articles/fork-a-repo/#step-2-create-a-local-clone-of-your-fork) your fork of this repository. Replace `<YOUR_GITHUB_USERNAME>` below with your Github username.
     ```shell
     git clone https://github.com/<YOUR_GITHUB_USERNAME>/sharding/;
     cd sharding;
     ```
 
-  2. Show list of available Python versions.
+  4. Show list of available Python versions.
   [Install Homebrew](https://brew.sh/). Install PyEnv.
   Switch to latest version of Python (i.e. using [virtualenv](https://github.com/pypa/virtualenv) or [pyenv](https://github.com/pyenv/pyenv)).
   Verify the version of Python being used.
@@ -39,19 +39,19 @@ Please refer to [pyethereum - Developer-Notes](https://github.com/ethereum/pyeth
       * Latest Stable version of Python 3.6 (i.e. Python `3.6.4rc1`), which is recommended since Viper requires python3.6, and Pyethereum supports python3.6
       * Note: Python 3.7 Alpha has been release but may not be currently supported. What's new in Python 3.7 https://docs.python.org/3.7/whatsnew/3.7.html
 
-  3. Install dependencies specific to operating system
+  5. Install dependencies specific to operating system
 
     ```shell
     brew install pkg-config libffi autoconf automake libtool openssl
     ```
 
-  4. Show existing versions of Ethereum from PyPI and Viper that are installed - https://pip.pypa.io/en/stable/reference/pip_list/
+  6. Show existing versions of Ethereum from PyPI and Viper that are installed - https://pip.pypa.io/en/stable/reference/pip_list/
     ```shell
     pip install --upgrade pip;
     pip freeze | grep -i -E "ethereum|viper|setuptools"
     ```
 
-  5. Uninstall previously installed versions of Ethereum from PyPI and Viper. Uninstall PyTest Catchlog to avoid warnings when running Unit Tests. See #5 in Troubleshooting section.
+  7. Uninstall previously installed versions of Ethereum from PyPI and Viper. Uninstall PyTest Catchlog to avoid warnings when running Unit Tests. See #5 in Troubleshooting section.
     * WARNING: Do not install/reinstall Ethereum from PyPI manually. See #4 in Troubleshooting section below.
 
     ```shell
@@ -61,20 +61,20 @@ Please refer to [pyethereum - Developer-Notes](https://github.com/ethereum/pyeth
     python -m pip uninstall viper -y;
     ```
 
-  6. Install dependencies for Unit Testing, and Pyethereum and Viper from a specific branch and commit hash by setting the `USE_PYETHEREUM_DEVELOP` flag
+  8. Install dependencies for Unit Testing, and Pyethereum and Viper from a specific branch and commit hash by setting the `USE_PYETHEREUM_DEVELOP` flag
     ```
     python -m pip install setuptools==37;
     USE_PYETHEREUM_DEVELOP=1 python setup.py develop;
     python -m pip install -r dev_requirements.txt;
     ```
 
-  7. Run Unit Tests
+  9. Run Unit Tests
 
     ```shell
     pytest sharding/tests/
     ```
 
-  8. Contributing
+  10. Contributing
 
     i) Configure an remote called Upstream. Show remote configurations (your Fork of the Upstream repository is called Origin)
   
@@ -193,13 +193,3 @@ Please refer to [pyethereum - Developer-Notes](https://github.com/ethereum/pyeth
    Location: /Users/Ls/.pyenv/versions/3.6.4rc1/lib/python3.6/site-packages/ethereum-2.1.0-py3.6.egg
    Requires: py-ecc, scrypt, pyethash, future, pbkdf2, repoze.lru, pysha3, coincurve, pycryptodome, PyYAML, rlp
    ```
-
-5. Remove warning when running Unit Tests
-
-  * Problem: Warning appears when running Unit Tests: pytest-catchlog plugin has been merged into the core, please remove it from your requirements. Docs: http://doc.pytest.org/en/latest/warnings.html
-
-  * Solution: Uninstall the dependency. Removed from dev_requirements.txt
-
-    ```shell
-    python -m pip uninstall pytest-catchlog -y
-    ```
