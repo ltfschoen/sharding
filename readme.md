@@ -51,11 +51,12 @@ Please refer to [pyethereum - Developer-Notes](https://github.com/ethereum/pyeth
     pip freeze | grep -i -E "ethereum|viper|setuptools"
     ```
 
-  5. Uninstall previously installed versions of Ethereum from PyPI and Viper.
+  5. Uninstall previously installed versions of Ethereum from PyPI and Viper. Uninstall PyTest Catchlog to avoid warnings when running Unit Tests. See #5 in Troubleshooting section.
     * WARNING: Do not install/reinstall Ethereum from PyPI manually. See #4 in Troubleshooting section below.
 
     ```shell
     python -m pip uninstall setuptools -y;
+    python -m pip uninstall pytest-catchlog -y
     python -m pip uninstall ethereum -y;
     python -m pip uninstall viper -y;
     ```
@@ -192,3 +193,13 @@ Please refer to [pyethereum - Developer-Notes](https://github.com/ethereum/pyeth
    Location: /Users/Ls/.pyenv/versions/3.6.4rc1/lib/python3.6/site-packages/ethereum-2.1.0-py3.6.egg
    Requires: py-ecc, scrypt, pyethash, future, pbkdf2, repoze.lru, pysha3, coincurve, pycryptodome, PyYAML, rlp
    ```
+
+5. Remove warning when running Unit Tests
+
+  * Problem: Warning appears when running Unit Tests: pytest-catchlog plugin has been merged into the core, please remove it from your requirements. Docs: http://doc.pytest.org/en/latest/warnings.html
+
+  * Solution: Uninstall the dependency. Removed from dev_requirements.txt
+
+    ```shell
+    python -m pip uninstall pytest-catchlog -y
+    ```
