@@ -1,0 +1,10 @@
+version: '3'
+services:
+  sandbox:
+    # uses an image built from Dockerfile in current directory
+    build:
+      context: .
+    image: sharding:tag
+    volumes:
+      - .:/code
+    command: tail -f /dev/null

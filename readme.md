@@ -11,6 +11,66 @@ See the "docs" directory for documentation and EIPs, and the "sharding" director
 
 Please refer to [pyethereum - Developer-Notes](https://github.com/ethereum/pyethereum/wiki/Developer-Notes)
 
+##### macOS using Docker
+
+  * About: Use Docker to create a Virtual Machine (VM) that builds and runs a Docker Container
+  according to the configuration in docker-compose.yml and Dockerfile. Any changes to Python scripts
+  are synchronised with a copy of the file in the code/ directory on the VM.
+
+  1. Install and Run Docker
+
+    * macOS - [Docker for Mac Community Edition (CE)](https://docs.docker.com/docker-for-mac/install/)
+
+      * Re-open from command line
+
+        ```shell
+        open /Applications/Docker.app/
+        ```
+
+    * Windows 10 - [Docker for Windows Community Edition (CE)](https://docs.docker.com/docker-for-windows/install/)
+
+  2. Run Docker Container
+
+    ```shell
+    docker-compose up --force-recreate --build -d
+    ```
+
+  3. Get the CONTAINER_ID
+
+    ```shell
+    docker ps -l
+    ```
+
+  4. Create Bash Terminal tab. Run interactive Docker shell
+
+    ```shell
+    docker exec -it <CONTAINER_ID> bash
+    ```
+
+  5. Remove all PyCached folders and files from within the Docker Container
+
+    ```shell
+    find . | grep -E "(__pycache__|\.pyc|\.pyo$)" | xargs rm -rf
+    ```
+
+  6. Run Unit Tests in Docker Container
+
+    ```shell
+    pytest sharding/tests/
+    ```
+
+  7. Show Docker Containers and their Networks
+
+    ```
+    docker network ps
+    ```
+
+  8. Stop and Remove Docker Containers, Networks, Images, and Volumes
+
+    ```
+    docker-compose down
+    ```
+
 ##### macOS
 
   1. [Fork](https://help.github.com/articles/fork-a-repo/#fork-an-example-repository) this Sharding Github repository
