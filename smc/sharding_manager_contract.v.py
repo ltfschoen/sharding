@@ -80,31 +80,15 @@ CollationHeaderAdded: __log__({
     proposer_address,
     proposer_bid,
     proposer_signature,
-    #expected_period_number: num,
-    #period_start_prevhash: bytes32
-    #collation_coinbase: address,
-    #state_root: bytes32,
-    #receipt_root: bytes32,
-    #collation_number: num,
-    #is_new_head: bool,
-    #score: num,
 })
 
+Register_collator: (__log__([collator_pool.pool_index: int128,
+    collator_address: address, collator_deposit: wei_value}))
+Deregister_collator: (__log__([collator_pool.pool_index: int128, 
+    collator_address: address, collator_deposit: wei_value}))
 
-Registered_collator: __log__([collator_pool.pool_index: int128, __
-    collator_address: address, collator_deposit: wei_value})
-
-# from VMC: TODO: determine the signature of the log `Deposit` and `Withdraw`
-#Deposit: __log__({collator_pool_index: int128, collator_addr: address, deposit: wei_value})
-#Withdraw: __log__({collator_pool_index: int128, collator_addr: address, deposit: wei_value})
-
-# Information about collators
-#collators: public({
-    # Amount of wei the collator holds
-    #deposit: wei_value,
-    # Address of the collator
-    #collator_addr: address,
-#}[num])
+# from VMC: TODO: determine the signature of the above logs 
+# `Register_collator` and `Deregister_collator`
 
 collator_registry: public ({
     degistered: int128,
@@ -131,38 +115,6 @@ availability_challenges_struct: public ({
     # availability challenges counter
     availability_challenges_len: int128
 })
-
-# Number of collators
-#num_collators: public(num)
-
-# Receipt data
-#receipts: public({
-#    shard_id: num,
-#    tx_startgas: num,
-#    tx_gasprice: num,
-#    value: wei_value,
-#    sender: address,
-#    to: address,
-#    data: bytes <= 4096,
-#}[num])
-
-# Current head of each shard
-#shard_head: public(bytes32[num])
-
-# Number of receipts
-#num_receipts: num
-
-# Has the collator registered before?
-# is_collator_deposited: public(bool[address])
-
-# Has the validator deposited before? This isn't necessary, because of the
-# check assert self.collator_registry[collator_address].pool_index = None
-# in register_collator().
-# has_validator_registered: public(bool[address])
-
-# Log the latest period number of the shard
-#period_head: public(int128[int128])
-
 
 @public
 def __init__():
@@ -238,7 +190,7 @@ def register_collator() -> bool:
 	self.collator_pool.collator_pool_len +=1
 	self.collator_pool.collator_pool_arr[index] = collator_address
 	
-	log.Registered_collator(index, collator_address, collator_deposit)
+	log.Register_collator(index, collator_address, collator_deposit)
 	
     return True
     
