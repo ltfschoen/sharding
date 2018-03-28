@@ -16,7 +16,7 @@
 smc_address: address
 
 # The most significant byte of the shard ID, with most significant bit 0 for mainnet and 1 for testnet. Provisionally NETWORK_ID := 0b1000_0001 for the phase 1 testnet.
-network_ID: bytes
+network_ID: bytes <= 8
 
 # Number of shards
 shard_count: int128
@@ -33,12 +33,10 @@ windback_length: int128
 
 ## Collations
 #------------
-collation_size: int128 # bytes
-chunk_size: int128 # bytes32[32]
+collation_size: int128
+chunk_size: int128
 collator_subsidy: decimal
 collator_address: address
-# num_collators: int128
-# empty_slots_stack_top: int128
 
 ## Registries
 #------------
@@ -71,7 +69,6 @@ collation_headers: public({
     proposer_address: address,
     proposer_bid: uint256,
     proposer_signature: bytes,
-    #score: int128,
 }#[bytes32][int128])
 
 # Events
@@ -114,17 +111,16 @@ collation_trees_struct: public ({
     last_update_periods: int128[uint256],
 })
 
-availability_challenges_struct: public ({
+availability_challenges_struct: public {
     # availability_challenges:
     # availability challenges counter
     availability_challenges_len: int128,
-})
+}
 
 @public
 def __init__():
     # Shards
     #self.smc_address = 
-    self.network_ID: bytes<= 8
     self.network_ID = "10000001"
     self.shard_count = 100			# shards
     self.period_length = 5			# block times
@@ -177,22 +173,22 @@ def stack_pop() -> int128:
 @public
 @payable
 def register_collator() -> bool:
-	collator_address = msg.sender
-	assert msg.value >= collator_deposit
-	assert self.collator_registry[collator_address].pool_index = None
-	# Find the empty slot index in the collator pool.
+    collator_address = msg.sender
+    assert msg.value >= collator_deposit
+    assert self.collator_registry[collator_address].pool_index = None
+    # Find the empty slot index in the collator pool.
     if not self.is_stack_empty():
-    	index = self.stack_pop()	
+        index = self.stack_pop()	
 	else:
         index = self.collator_pool.collator_pool_len 
-		# collator_pool_arr indices are from 0 to collator_pool_len -1. ;)
+	    # collator_pool_arr indices are from 0 to collator_pool_len -1. ;)
 	self.collator_registry[collator_address] = {
         deregistered: 0,
         pool_index: index,
     }
-	self.collator_pool.collator_pool_len +=1
-	self.collator_pool.collator_pool_arr[index] = collator_address
-	
-	log.Register_collator(index, collator_address, collator_deposit)
+    self.collator_pool.collator_pool_len +=1
+    self.collator_pool.collator_pool_arr[index] = collator_address
+
+    log.Register_collator(index, collator_address, self.collator_deposit)
 	
     return True
