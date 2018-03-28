@@ -120,7 +120,7 @@ availability_challenges_struct: public ({
 def __init__():
     # Shards
     #self.smc_address = 
-    self.network_ID = 0b1000_0001
+    self.network_ID: bytes[8] = 0x10000001
     self.shard_count = 100			# shards
     self.period_length = 5			# block times
     self.lookahead_length = 4		# periods
