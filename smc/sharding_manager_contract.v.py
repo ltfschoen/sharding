@@ -4,6 +4,7 @@
 # https://github.com/ethereum/py-evm/blob/sharding/evm/vm/forks/sharding/contracts/validator_manager.v.py
 # to comply with the above spec. WIP, some content hasn't been modified.
 
+# FYI: see https://github.com/ethereum/vyper/blob/master/docs/logging.rst
 # Events
 CollationHeaderAdded: event({
     shard_id: uint256,
@@ -19,13 +20,19 @@ CollationHeaderAdded: event({
 Register_collator: event({
     pool_index: int128,
     collator_address: indexed(address),
-    collator_deposit: wei_value,
+    deregistered: indexed(wei_value),
 })
 
 Deregister_collator: event({
     pool_index: int128, 
     collator_address: indexed(address),
-    collator_deposit: wei_value,
+    deregistered: indexed(wei_value),
+})
+
+Release_collator: event({
+    pool_index: int128, 
+    collator_address: indexed(address),
+    deregistered: indexed(wei_value),
 })
 
 # Parameters
@@ -98,8 +105,6 @@ collation_headers: public({
     proposer_bid: uint256,
     proposer_signature: bytes32,
 })#[bytes32][int128])
-
-
 
 # from VMC: TODO: determine the signature of the above logs 
 # `Register_collator` and `Deregister_collator`
@@ -192,6 +197,7 @@ def stack_pop() -> int128:
 def register_collator() -> bool:
     self.collator_address = msg.sender
     assert msg.value >= self.collator_deposit
+    # TODO: make sure that it will return 0 if it doesn't exist, not None.
     assert not self.collator_registry[self.collator_address].pool_index == 0
     # Find the empty slot index in the collator pool.
     if not self.is_stack_empty():
@@ -200,16 +206,75 @@ def register_collator() -> bool:
         self.pool_index_temp = self.collator_pool.collator_pool_len 
         # collator_pool_arr indices are from 0 to collator_pool_len - 1. ;)
     self.collator_registry[self.collator_address].deregistered = 0 
-    self.collator_registry[self.collator_address].pool_index = self.pool_index_temp#= {
-    #self.collator_registry[self.collator_address] = {
+    self.collator_registry[self.collator_address].pool_index \
+        = self.pool_index_temp
+    # Doesn't work: 
+    # self.collator_registry[self.collator_address] = {
     #    deregistered = 0,
     #    pool_index = self.pool_index_temp,
     #}
     self.collator_pool.collator_pool_len +=1
-    self.collator_pool.collator_pool_arr[self.pool_index_temp] = \
-        self.collator_address
+    self.collator_pool.collator_pool_arr[self.pool_index_temp] \
+       = self.collator_address
 
     (log.Register_collator(self.pool_index_temp, self.collator_address,
         self.collator_deposit))
 
     return True
+
+#def checkCollator(collator_pool_index) -> bool
+#    # This will also check that the collator has made a deposit.
+#    assert self.collator_registry[self.collator_address].pool_index \
+#        == collator_pool_index
+    # TODO: make sure that it will return the zero address if it doesn't exist,
+    # not None.
+#    assert self.collator_address != 0x0000000000000000000000000000000000000000
+#    assert msg.sender == self.collator_address
+    
+    
+# Verifies that `msg.sender == collators[collator_index].addr`.  If it is then
+# remove the collator rom the collator pool and refund the deposited ETH.
+@public
+def deregister_collator(collator_pool_index: int128) -> bool:
+    self.collator_address = self.collator_pool.collator_pool_arr\
+        [collator_pool_index]
+
+    self.collator_registry[self.collator_address].deregistered \
+        = self.collator_lockup_length
+
+    self.stack_push(collator_pool_index)
+    self.collator_pool.collator_pool_len -= 1
+    
+    log.Deregister_collator(collator_pool_index, self.collator_address, \
+        self.collator_registry[self.collator_address].deregistered)
+
+    return True
+
+# Removes an entry from collator_registry, releases the collator deposit, and
+# returns True on success. Checks:
+
+#   Authentication: collator_registry[msg.sender] exists
+#   Deregistered: collator_registry[msg.sender].deregistered != 0
+#   Lockup: floor(block.number / PERIOD_LENGTH) 
+#       > collator_registry[msg.sender].deregistered + COLLATOR_LOCKUP_LENGTH
+
+@public
+@payable
+def release_collator(collator_pool_index: int128) -> bool:
+    # While these 3 statements are repeated above, moving them to another 
+    # function is more complicated because msg.sender changes between contract
+    # calls. TODO.
+    self.collator_address = self.collator_pool.collator_pool_arr\
+        [collator_pool_index]
+        
+    assert self.collator_address != 0x0000000000000000000000000000000000000000
+    assert msg.sender == self.collator_address
+    
+    self.collator_registry[self.collator_address].deregistered != 0
+    self.collator_registry[self.collator_address].pool_index
+    
+    send(self.collator_address, self.collator_deposit)
+
+    log.Release_collator(collator_pool_index, self.collator_address, \
+        self.collator_registry[self.collator_address].deregistered)
+        
