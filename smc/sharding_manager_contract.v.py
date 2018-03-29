@@ -4,6 +4,30 @@
 # https://github.com/ethereum/py-evm/blob/sharding/evm/vm/forks/sharding/contracts/validator_manager.v.py
 # to comply with the above spec. WIP, some content hasn't been modified.
 
+# Events
+CollationHeaderAdded: event({
+    shard_id: uint256,
+    parent_hash: bytes32,
+    chunk_root: bytes32,
+    period: int128,
+    height: int128,
+    proposer_address: address,
+    proposer_bid: uint256,
+    proposer_signature: bytes <= 8192 # 1024*8 for general signature schemes
+})
+
+Register_collator: event({
+    pool_index: int128,
+    collator_address: indexed(address),
+    collator_deposit: wei_value,
+})
+
+Deregister_collator: event({
+    pool_index: int128, 
+    collator_address: indexed(address),
+    collator_deposit: wei_value,
+})
+
 # Parameters
 #-----------
 
@@ -29,7 +53,7 @@ period_length: int128
 # approximately 5 minutes.
 # Number of periods ahead of current period, which the contract
 # is able to return the collator of that period
-lookahead_periods: int128
+lookahead_length: int128
 
 windback_length: int128
 
@@ -47,6 +71,7 @@ proposer_deposit: wei_value
 min_proposer_balance: decimal
 collator_lockup_length: int128
 proposer_lockup_length: int128
+pool_index_temp: int128
 
 collator_pool: public({
     # array of active collator addresses
@@ -71,46 +96,24 @@ collation_headers: public({
     height: int128,
     proposer_address: address,
     proposer_bid: uint256,
-    proposer_signature: bytes,
+    proposer_signature: bytes32,
 })#[bytes32][int128])
 
-# Events
-CollationHeaderAdded: __log__({
-    shard_id: uint256,
-    parent_hash: bytes32,
-    chunk_root: bytes32,
-    period: int128,
-    height: int128,
-    proposer_address: address,
-    proposer_bid: uint256,
-    proposer_signature: bytes,
-})
 
-Register_collator: __log__({
-    pool_index: int128,
-    collator_address: address,
-    collator_deposit: wei_value,
-})
-
-Deregister_collator: __log__({
-    pool_index: int128, 
-    collator_address: address,
-    collator_deposit: wei_value,
-})
 
 # from VMC: TODO: determine the signature of the above logs 
 # `Register_collator` and `Deregister_collator`
 
 collator_registry: public ({
-    degistered: int128,
+    deregistered: int128,
     # deregistered is 0 for not yet deregistered collators.
     pool_index: int128,
-}[collator_address])
+}[address])
 
 proposer_registry: public ({
-    degistered: int128,
+    deregistered: int128,
     balances: wei_value[uint256],
-}[proposer_address])
+}[address])
 
 collation_trees_struct: public ({
     # The collation tree of a shard maps collation hashes to previous collation
@@ -154,19 +157,21 @@ def __init__():
     #self.deposit_size = 100000000000000000000
 
 # Checks if empty_slots_stack_top is empty    
-@internal
+@private
 def is_stack_empty() -> bool:
     return (self.collator_pool.empty_slots_stack_top == 0)
 
 # Pushes one num to empty_slots_stack. Why not just use the push method?
-@internal
+@private
 def stack_push(index: int128):
-    (self.collator_pool.empty_slots_stack[
-        self.collator_pool.empty_slots_stack_top] = index)
+    self.collator_pool.empty_slots_stack[self.collator_pool \
+        .empty_slots_stack_top] = index
+    #(self.collator_pool.empty_slots_stack[
+    #TODO: re-add this: self.collator_pool.empty_slots_stack_top] = index)
     self.collator_pool.empty_slots_stack_top += 1
-
+    
 # Pops one num out of empty_slots_stack. Why not just use the pop method?
-@internal
+@private
 def stack_pop() -> int128:
     if self.is_stack_empty():
         return -1
@@ -185,22 +190,26 @@ def stack_pop() -> int128:
 @public
 @payable
 def register_collator() -> bool:
-    collator_address = msg.sender
-    assert msg.value >= collator_deposit
-    assert self.collator_registry[collator_address].pool_index == None
+    self.collator_address = msg.sender
+    assert msg.value >= self.collator_deposit
+    assert not self.collator_registry[self.collator_address].pool_index == 0
     # Find the empty slot index in the collator pool.
     if not self.is_stack_empty():
-        index = self.stack_pop()	
+        self.pool_index_temp = self.stack_pop()	
     else:
-        index = self.collator_pool.collator_pool_len 
+        self.pool_index_temp = self.collator_pool.collator_pool_len 
         # collator_pool_arr indices are from 0 to collator_pool_len - 1. ;)
-    self.collator_registry[collator_address] = ({
-        deregistered: 0,
-        pool_index: index,
-    })
+    self.collator_registry[self.collator_address].deregistered = 0 
+    self.collator_registry[self.collator_address].pool_index = self.pool_index_temp#= {
+    #self.collator_registry[self.collator_address] = {
+    #    deregistered = 0,
+    #    pool_index = self.pool_index_temp,
+    #}
     self.collator_pool.collator_pool_len +=1
-    self.collator_pool.collator_pool_arr[index] = collator_address
+    self.collator_pool.collator_pool_arr[self.pool_index_temp] = \
+        self.collator_address
 
-    log.Register_collator(index, collator_address, self.collator_deposit)
+    (log.Register_collator(self.pool_index_temp, self.collator_address,
+        self.collator_deposit))
 
     return True
