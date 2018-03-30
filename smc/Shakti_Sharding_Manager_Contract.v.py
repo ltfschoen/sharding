@@ -1,5 +1,9 @@
 # https://ethresear.ch/t/sharding-phase-1-spec/1407
 
+# I've named it Shakti for a shorter name, that means the primordial cosmic energy
+# that upholds the phenomenal cosmos, which seems appropriate, given that the SMC
+# is managing "universes" of shards.
+
 # Modified from 
 # https://github.com/ethereum/py-evm/blob/sharding/evm/vm/forks/sharding/contracts/validator_manager.v.py
 # to comply with the above spec. WIP, some content hasn't been modified.
