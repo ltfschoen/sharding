@@ -14,7 +14,8 @@ CollationHeaderAdded: event({
     height: int128,
     proposer_address: address,
     proposer_bid: uint256,
-    proposer_signature: bytes <= 8192 # 1024*8 for general signature schemes
+    proposer_signature: bytes <= 8192, # 1024*8 for general signature schemes
+    collation_number: uint256,
 })
 
 Register_collator: event({
@@ -26,13 +27,13 @@ Register_collator: event({
 Deregister_collator: event({
     pool_index: int128, 
     collator_address: indexed(address),
-    deregistered: indexed(wei_value),
+    deregistered: indexed(int128),
 })
 
 Release_collator: event({
     pool_index: int128, 
     collator_address: indexed(address),
-    deregistered: indexed(wei_value),
+    deregistered: indexed(int128),
 })
 
 # Parameters
@@ -54,6 +55,7 @@ shard_count: int128
 
 # Number of blocks in one period
 period_length: int128
+period_length_as_uint256: uint256
 
 # The lookahead time, denominated in periods, for eligible collators to perform 
 # windback and select proposals. Provisionally LOOKAHEAD_LENGTH := 4, 
@@ -70,6 +72,7 @@ collation_size: int128
 chunk_size: int128
 collator_subsidy: decimal
 collator_address: address
+
 
 ## Registries
 #------------
@@ -93,7 +96,7 @@ collator_pool: public({
 })
 
 # Collation headers
-collation_headers: public({
+collation_header: public({
 # Sharding participants have light-client access to collation headers via the 
 # HeaderAdded logs produced by the addHeader method. The header fields are:
     shard_id: uint256,  # pointer to shard
@@ -104,6 +107,7 @@ collation_headers: public({
     proposer_address: address,
     proposer_bid: uint256,
     proposer_signature: bytes32,
+    collation_number: uint256,
 })#[bytes32][int128])
 
 # from VMC: TODO: determine the signature of the above logs 
@@ -208,7 +212,8 @@ def register_collator() -> bool:
     self.collator_registry[self.collator_address].deregistered = 0 
     self.collator_registry[self.collator_address].pool_index \
         = self.pool_index_temp
-    # Doesn't work: 
+    # Doesn't work with a colon or equals:
+    # https://github.com/ethereum/vyper/issues/733
     # self.collator_registry[self.collator_address] = {
     #    deregistered = 0,
     #    pool_index = self.pool_index_temp,
@@ -255,8 +260,8 @@ def deregister_collator(collator_pool_index: int128) -> bool:
 
 #   Authentication: collator_registry[msg.sender] exists
 #   Deregistered: collator_registry[msg.sender].deregistered != 0
-#   Lockup: floor(block.number / PERIOD_LENGTH) 
-#       > collator_registry[msg.sender].deregistered + COLLATOR_LOCKUP_LENGTH
+#   Lockup: floor(collation_header.number / period_length) 
+#       > collator_registry[msg.sender].deregistered + collator_lockup_length
 
 @public
 @payable
@@ -269,12 +274,14 @@ def release_collator(collator_pool_index: int128) -> bool:
         
     assert self.collator_address != 0x0000000000000000000000000000000000000000
     assert msg.sender == self.collator_address
+    assert self.collator_registry[self.collator_address].deregistered != 0
     
-    self.collator_registry[self.collator_address].deregistered != 0
-    self.collator_registry[self.collator_address].pool_index
-    
+    #period_length_as_uint256 = as_uint256(period_length)
+    assert floor(self.collation_header.collation_number / \
+        convert(self.period_length, 'uint256')) > convert(self.collator_registry[msg.sender]\
+        .deregistered + self.collator_lockup_length, 'uint256')
     send(self.collator_address, self.collator_deposit)
+    
+    self.collator_registry[self.collator_address].pool_index = 0
 
-    log.Release_collator(collator_pool_index, self.collator_address, \
-        self.collator_registry[self.collator_address].deregistered)
-        
+    log.Release_collator(collator_pool_index, self.collator_address, self.collator_registry[self.collator_address].deregistered)
