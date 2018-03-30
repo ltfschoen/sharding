@@ -4,7 +4,8 @@
 
 # I've named it Shakti for a shorter name, that means the primordial cosmic energy
 # that upholds the phenomenal cosmos, which seems appropriate, given that the SMC
-# is managing "universes" of shards.
+# is managing "universes" of shards. For unambiguity where necessary it can be called
+# the Shakti contract or SMC.
 # https://en.wikipedia.org/wiki/Shakti
 
 # Copyright: Unlicense, no rights reserved. Author: James Ray
