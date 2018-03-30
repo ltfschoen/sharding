@@ -1,12 +1,12 @@
-# https://ethresear.ch/t/sharding-phase-1-spec/1407
+# Developed from the draft phase 1 spec: https://ethresear.ch/t/sharding-phase-1-spec/1407
+# As well as the validator_manager_contract:
+# https://github.com/ethereum/py-evm/blob/sharding/evm/vm/forks/sharding/contracts/validator_manager.v.py
 
 # I've named it Shakti for a shorter name, that means the primordial cosmic energy
 # that upholds the phenomenal cosmos, which seems appropriate, given that the SMC
 # is managing "universes" of shards.
 
-# Modified from 
-# https://github.com/ethereum/py-evm/blob/sharding/evm/vm/forks/sharding/contracts/validator_manager.v.py
-# to comply with the above spec. WIP, some content hasn't been modified.
+# Copyright: Unlicense, no rights reserved. Author: James Ray
 
 # FYI: see https://github.com/ethereum/vyper/blob/master/docs/logging.rst
 # Events
