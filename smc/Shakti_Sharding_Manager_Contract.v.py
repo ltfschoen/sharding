@@ -220,13 +220,13 @@ def register_collator() -> bool:
         = self.pool_index_temp
     # Doesn't work with a colon or equals:
     # https://github.com/ethereum/vyper/issues/733
-    # self.collator_registry[self.collator_address] = {
-    #    deregistered = 0,
-    #    pool_index = self.pool_index_temp,
-    #}
-    self.collator_pool.collator_pool_len +=1
-    self.collator_pool.collator_pool_arr[self.pool_index_temp] \
-       = self.collator_address
+    self.collator_registry[self.collator_address] = {
+        deregistered : 0,
+        pool_index : self.pool_index_temp,
+    }
+    #self.collator_pool.collator_pool_len +=1
+    #self.collator_pool.collator_pool_arr[self.pool_index_temp] \
+    #   = self.collator_address
 
     (log.Register_collator(self.pool_index_temp, self.collator_address,
         self.collator_deposit))
@@ -283,11 +283,16 @@ def release_collator(collator_pool_index: int128) -> bool:
     assert self.collator_registry[self.collator_address].deregistered != 0
     
     #period_length_as_uint256 = as_uint256(period_length)
-    assert floor(self.collation_header.collation_number / \
-        convert(self.period_length, 'uint256')) > convert(self.collator_registry[msg.sender]\
-        .deregistered + self.collator_lockup_length, 'uint256')
+    assert floor(convert(convert(uint256_div(self.collation_header.collation_number, \
+        convert(self.period_length, 'uint256')), 'int128'), 'decimal')) \
+        > convert(convert(convert(self.collator_registry[msg.sender]\
+        .deregistered + self.collator_lockup_length, 'uint256'), \
+        'int128'), 'decimal')
     send(self.collator_address, self.collator_deposit)
     
     self.collator_registry[self.collator_address].pool_index = 0
 
-    log.Release_collator(collator_pool_index, self.collator_address, self.collator_registry[self.collator_address].deregistered)
+    log.Release_collator(collator_pool_index, self.collator_address, \
+        self.collator_registry[self.collator_address].deregistered)
+    
+    return True
