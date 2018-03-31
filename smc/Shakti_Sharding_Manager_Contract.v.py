@@ -66,7 +66,7 @@ Release_proposer: event({
 # Parameters
 #-----------
 
-latest_block_number: uint256
+# latest_block_number: uint256
 
 ## Shards
 #--------
@@ -170,7 +170,7 @@ availability_challenges_struct: public ({
 
 @public
 def __init__():
-    self.latest_block_number = convert(5353011, 'uint256')
+    #self.latest_block_number = convert(5353011, 'uint256')
     # Shards
     #self.smc_address = 
     self.network_ID = "10000001"
@@ -211,6 +211,8 @@ def __init__():
 #    return latest_block_number
 
 # Try to find out how to use an oracle instead.
+
+# Apparently block.number will suffice, but check.
 
 # Checks if empty_slots_stack_top is empty    
 @private
@@ -308,11 +310,8 @@ def deregister_collator() -> bool:
 def release_collator() -> bool:
     self.collator_address = msg.sender
     assert self.collator_registry[self.collator_address].deregistered != 0
-    assert floor(convert(convert(uint256_div(self.latest_block_number, \
-        convert(self.period_length, 'uint256')), 'int128'), 'decimal')) \
-        > convert(convert(convert(self.collator_registry[msg.sender]\
-        .deregistered + self.collator_lockup_length, 'uint256'), \
-        'int128'), 'decimal')
+    assert floor(block.number / self.period_length) > self.collator_registry\
+        [msg.sender].deregistered + self.collator_lockup_length
         
     send(self.collator_address, self.collator_deposit)
     self.collator_registry[self.collator_address].pool_index = 0
@@ -371,11 +370,8 @@ def release_proposer() -> bool:
     self.proposer_address = msg.sender
     assert self.proposer_registry[self.proposer_address].deregistered != 0
     
-    assert floor(convert(convert(uint256_div(self.latest_block_number, \
-        convert(self.period_length, 'uint256')), 'int128'), 'decimal')) \
-        > convert(convert(convert(self.collator_registry[msg.sender]\
-        .deregistered + self.collator_lockup_length, 'uint256'), \
-        'int128'), 'decimal')
+    assert floor(block.number / self.period_length) > self.collator_registry\
+        [msg.sender].deregistered + self.collator_lockup_length
     send(self.proposer_address, self.proposer_registry\
         [self.proposer_address].balances)
         
