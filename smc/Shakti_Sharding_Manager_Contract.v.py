@@ -399,3 +399,37 @@ def release_proposer() -> bool:
 
 #    Shard: shard_id against NETWORK_ID and SHARD_COUNT
 #    Authentication: proposer_registry[msg.sender] exists
+
+#Collation trees
+
+#    get_eligible_collator(uint256 shard_id, uint256 period) returns address: Uses the blockhash at block number (period - LOOKAHEAD_LENGTH) * PERIOD_LENGTH) and shard_id to pseudo-randomly select an eligible collator from the collator pool, and returns the address of the eligible collator. Checks:
+#       Shard: shard_id against NETWORK_ID and SHARD_COUNT
+#        Period: period == floor(block.number / PERIOD_LENGTH)
+#        Non-empty pool: collator_pool_len > 0
+
+
+
+#    compute_header_hash(uint256 shard_id, bytes32 parent_hash, bytes32 chunk_root, uint256 period, address proposer_address, uint256 proposer_bid) returns bytes32: Returns the header hash.
+#    add_header(uint256 shard_id, bytes32 parent_hash, bytes32 chunk_root, uint256 period, address proposer_address, uint256 proposer_bid, bytes proposer_signature) returns bool: Calls compute_header_hash(...), extends the collation tree of shard_id, burns the proposer_bid from the proposer’s balance at shard_id, issues a HeaderAdded log, and returns True on success. Checks:
+#        Shard: shard_id against NETWORK_ID and SHARD_COUNT
+#        Collator eligibility: msg.sender == get_eligible_collator(shard_id, period)
+#        Parent exists: collation_trees[shard_id][compute_header_hash(...)] exists
+#        Correct period: period == floor(block.number / PERIOD_LENGTH)
+#        Unique update: period != last_update_periods[shard_id]
+#        Proposer balance: proposer_registry[proposer_address].balances[shard_id] >= max(proposer_bid, MIN_PROPOSER_BALANCE)
+#        Proposer signature: proposer_signature matches compute_header_hash(...) and proposer_address
+
+#Slashing
+
+#    proposal_commitment_slashing(uint256 shard_id, bytes32 collation_hash, uint256 height, uint256 left_hash, uint256 right_hash, bytes signature) returns bool: Slashes a collator that called add_header with a non-committed proposal. Checks:
+#        Shard: shard_id against NETWORK_ID and SHARD_COUNT
+#        Collation tree: collation_trees[shard_id][collation_hash] exists
+#        Height: collation_trees[shard_id][collation_hash] matches height
+#        Signature: signature matches height, left_hash and right_hash
+#        Slashing condition: left_hash < collation_hash and collation_hash < right_hash
+
+
+
+#    availability_challenge(): TBD
+#    availability_response(): TBD
+#    availability_slashing(): TBD
