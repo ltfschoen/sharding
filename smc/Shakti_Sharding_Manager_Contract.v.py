@@ -10,6 +10,9 @@
 
 # Copyright: Unlicense, no rights reserved. Author: James Ray
 
+# Doesn't work: invalid top-level statement
+# import requests, json
+
 # FYI: see https://github.com/ethereum/vyper/blob/master/docs/logging.rst
 # Events
 CollationHeaderAdded: event({
@@ -21,29 +24,49 @@ CollationHeaderAdded: event({
     proposer_address: address,
     proposer_bid: uint256,
     proposer_signature: bytes <= 8192, # 1024*8 for general signature schemes
-    collation_number: uint256,
 })
 
 Register_collator: event({
     pool_index: int128,
     collator_address: indexed(address),
-    deregistered: indexed(wei_value),
+    deregistered: indexed(int128),
+    collation_deposit: indexed(wei_value)
 })
 
 Deregister_collator: event({
     pool_index: int128, 
     collator_address: indexed(address),
-    deregistered: indexed(int128),
+    deregistered: indexed(int128)
 })
 
 Release_collator: event({
     pool_index: int128, 
     collator_address: indexed(address),
-    deregistered: indexed(int128),
+    deregistered: indexed(int128)
 })
+
+Register_proposer: event({
+    proposer_address: address,
+    deregistered: indexed(int128),
+    proposer_deposit: indexed(wei_value)
+})
+
+Deregister_proposer: event({
+    proposer_address: address,
+    deregistered: indexed(int128)
+})
+
+Release_proposer: event({
+    proposer_address: address,
+    deregistered: indexed(int128),
+    proposer_balance: indexed(wei_value)
+})
+
 
 # Parameters
 #-----------
+
+latest_block_number: uint256
 
 ## Shards
 #--------
@@ -79,7 +102,6 @@ chunk_size: int128
 collator_subsidy: decimal
 collator_address: address
 
-
 ## Registries
 #------------
 collator_deposit: wei_value
@@ -88,6 +110,7 @@ min_proposer_balance: decimal
 collator_lockup_length: int128
 proposer_lockup_length: int128
 pool_index_temp: int128
+proposer_address: address
 
 collator_pool: public({
     # array of active collator addresses
@@ -98,7 +121,7 @@ collator_pool: public({
     # degister_collator().
     empty_slots_stack: int128[int128],
     # The top index of the stack in empty_slots_stack.
-    empty_slots_stack_top: int128,
+    empty_slots_stack_top: int128
 })
 
 # Collation headers
@@ -122,12 +145,12 @@ collation_header: public({
 collator_registry: public ({
     deregistered: int128,
     # deregistered is 0 for not yet deregistered collators.
-    pool_index: int128,
+    pool_index: int128
 }[address])
 
 proposer_registry: public ({
     deregistered: int128,
-    balances: wei_value[uint256],
+    balances: wei_value
 }[address])
 
 collation_trees_struct: public ({
@@ -136,17 +159,18 @@ collation_trees_struct: public ({
     # height in the last 8 bytes.
     collation_trees: bytes32[bytes32][uint256],
     # This contains the period of the last update for each shard.
-    last_update_periods: int128[uint256],
+    last_update_periods: int128[uint256]
 })
 
 availability_challenges_struct: public ({
     # availability_challenges:
     # availability challenges counter
-    availability_challenges_len: int128,
+    availability_challenges_len: int128
 })
 
 @public
 def __init__():
+    self.latest_block_number = convert(5353011, 'uint256')
     # Shards
     #self.smc_address = 
     self.network_ID = "10000001"
@@ -171,6 +195,23 @@ def __init__():
     # 10 ** 20 wei = 100 ETH
     #self.deposit_size = 100000000000000000000
 
+#@private
+#def get_latest_block_number() -> uint256:
+#   Link: https://api.etherscan.io/api?module=proxy&action=eth_blockNumber
+#    &apikey='your API key'
+#    payload = {'module': 'proxy', 'action': 'eth_blockNumber', \
+#        'apikey' : your API key}
+#   requests...json() returns a string containing a hexadecimal number, e.g. 
+#       "0x51ac9f". Need to convert it to a uint256.
+#   There is no support for strings, so working with this result doesn't seem 
+#   feasible, e.g. you can't slice the result or convert it to a uint256.
+#    latest_block_number = convert(slice(requests.get(\
+#        "https://api.etherscan.io/api", params=payload).json()\
+#        ["result"]), 'bytes')
+#    return latest_block_number
+
+# Try to find out how to use an oracle instead.
+
 # Checks if empty_slots_stack_top is empty    
 @private
 def is_stack_empty() -> bool:
@@ -193,6 +234,11 @@ def stack_pop() -> int128:
     self.collator_pool.empty_slots_stack_top -= 1
     return (self.collator_pool.empty_slots_stack[self.collator_pool.
         empty_slots_stack_top])
+
+# What if someone wants to (de)register a collator or a proposer on  
+# someone else's behalf, or wants to register with a different  
+# address from msg.sender, but that they own? For simplicity and
+# security just allow only  msg.sender to (de)register msg.sender.
 
 # Register a collator. Adds an entry to collator_registry, updates the
 # collator pool (collator_pool, collator_pool_len, etc.), locks a deposit
@@ -218,45 +264,33 @@ def register_collator() -> bool:
     self.collator_registry[self.collator_address].deregistered = 0 
     self.collator_registry[self.collator_address].pool_index \
         = self.pool_index_temp
-    # Doesn't work with a colon or equals:
-    # https://github.com/ethereum/vyper/issues/733
+
     self.collator_registry[self.collator_address] = {
         deregistered : 0,
-        pool_index : self.pool_index_temp,
+        pool_index : self.pool_index_temp
     }
-    #self.collator_pool.collator_pool_len +=1
-    #self.collator_pool.collator_pool_arr[self.pool_index_temp] \
-    #   = self.collator_address
 
     (log.Register_collator(self.pool_index_temp, self.collator_address,
+        self.collator_registry[self.collator_address].deregistered, \
         self.collator_deposit))
 
     return True
-
-#def checkCollator(collator_pool_index) -> bool
-#    # This will also check that the collator has made a deposit.
-#    assert self.collator_registry[self.collator_address].pool_index \
-#        == collator_pool_index
-    # TODO: make sure that it will return the zero address if it doesn't exist,
-    # not None.
-#    assert self.collator_address != 0x0000000000000000000000000000000000000000
-#    assert msg.sender == self.collator_address
     
     
 # Verifies that `msg.sender == collators[collator_index].addr`.  If it is then
 # remove the collator rom the collator pool and refund the deposited ETH.
 @public
-def deregister_collator(collator_pool_index: int128) -> bool:
-    self.collator_address = self.collator_pool.collator_pool_arr\
-        [collator_pool_index]
-
+def deregister_collator() -> bool:
+    self.collator_address = msg.sender
+    assert self.collator_registry[self.collator_address].deregistered == 0
     self.collator_registry[self.collator_address].deregistered \
         = self.collator_lockup_length
 
-    self.stack_push(collator_pool_index)
+    self.stack_push(self.collator_registry[self.collator_address].pool_index)
     self.collator_pool.collator_pool_len -= 1
     
-    log.Deregister_collator(collator_pool_index, self.collator_address, \
+    log.Deregister_collator(self.collator_registry[self.collator_address]\
+        .pool_index, self.collator_address, \
         self.collator_registry[self.collator_address].deregistered)
 
     return True
@@ -268,31 +302,100 @@ def deregister_collator(collator_pool_index: int128) -> bool:
 #   Deregistered: collator_registry[msg.sender].deregistered != 0
 #   Lockup: floor(collation_header.number / period_length) 
 #       > collator_registry[msg.sender].deregistered + collator_lockup_length
-
+    
 @public
 @payable
-def release_collator(collator_pool_index: int128) -> bool:
-    # While these 3 statements are repeated above, moving them to another 
-    # function is more complicated because msg.sender changes between contract
-    # calls. TODO.
-    self.collator_address = self.collator_pool.collator_pool_arr\
-        [collator_pool_index]
-        
-    assert self.collator_address != 0x0000000000000000000000000000000000000000
-    assert msg.sender == self.collator_address
+def release_collator() -> bool:
+    self.collator_address = msg.sender
     assert self.collator_registry[self.collator_address].deregistered != 0
-    
-    #period_length_as_uint256 = as_uint256(period_length)
-    assert floor(convert(convert(uint256_div(self.collation_header.collation_number, \
+    assert floor(convert(convert(uint256_div(self.latest_block_number, \
         convert(self.period_length, 'uint256')), 'int128'), 'decimal')) \
         > convert(convert(convert(self.collator_registry[msg.sender]\
         .deregistered + self.collator_lockup_length, 'uint256'), \
         'int128'), 'decimal')
+        
     send(self.collator_address, self.collator_deposit)
-    
     self.collator_registry[self.collator_address].pool_index = 0
+    self.collator_registry[self.collator_address].deregistered = 0
 
-    log.Release_collator(collator_pool_index, self.collator_address, \
+    log.Release_collator(self.collator_registry[self.collator_address]\
+        .pool_index, self.collator_address, \
         self.collator_registry[self.collator_address].deregistered)
     
     return True
+    
+# register_proposer() returns bool: Equivalent of register_collator(),
+# without the collator pool updates.
+
+@public
+@payable
+def register_proposer() -> bool:
+    self.proposer_address = msg.sender
+    # Make sure the proposer doesn't already exist in the registry.
+    assert not self.proposer_registry[self.proposer_address].balances != 0
+    assert msg.value >= self.proposer_deposit
+    # TODO: make sure that it will return 0 if it doesn't exist, not None.
+
+    self.proposer_registry[self.proposer_address] = {
+        deregistered : 0,
+        balances : msg.value
+    }
+
+    log.Register_proposer(self.proposer_address,\
+        self.proposer_registry[self.proposer_address].deregistered, msg.value)
+
+    return True
+
+# deregister_proposer() returns bool: Equivalent to  
+# deregister_collator(), without the collator pool updates.
+
+@public
+def deregister_proposer() -> bool:
+    self.proposer_address = msg.sender
+    assert self.proposer_registry[self.proposer_address].deregistered != 0
+    self.proposer_registry[self.proposer_address].deregistered \
+        = self.proposer_lockup_length
+    
+    log.Deregister_proposer(self.proposer_address, \
+        self.proposer_registry[self.proposer_address].deregistered)
+
+    return True
+
+# release_proposer() returns bool: Equivalent of release_collator().
+# WARNING: The proposer balances need to be emptied before calling this method.
+# Why? Can't they be cleared during the method?
+
+@public
+@payable
+def release_proposer() -> bool:
+    self.proposer_address = msg.sender
+    assert self.proposer_registry[self.proposer_address].deregistered != 0
+    
+    assert floor(convert(convert(uint256_div(self.latest_block_number, \
+        convert(self.period_length, 'uint256')), 'int128'), 'decimal')) \
+        > convert(convert(convert(self.collator_registry[msg.sender]\
+        .deregistered + self.collator_lockup_length, 'uint256'), \
+        'int128'), 'decimal')
+    send(self.proposer_address, self.proposer_registry\
+        [self.proposer_address].balances)
+        
+    self.proposer_registry[self.proposer_address].deregistered = 0
+    self.proposer_registry[self.proposer_address].balances = 0
+
+    log.Release_proposer(self.proposer_address, \
+        self.proposer_registry[self.proposer_address].deregistered,\
+        self.proposer_registry[self.proposer_address].balances)
+    
+    return True
+
+# proposer_add_balance(uint256 shard_id) returns bool: Adds msg.value to the
+# balance of the proposer on shard_id, and returns True on success. Checks:
+
+#    Shard: shard_id against NETWORK_ID and SHARD_COUNT
+#    Authentication: proposer_registry[msg.sender] exists
+
+# proposer_withdraw_balance(uint256 shard_id) returns bool: Withdraws the 
+# balance of a proposer on shard_id, and returns True on success. Checks:
+
+#    Shard: shard_id against NETWORK_ID and SHARD_COUNT
+#    Authentication: proposer_registry[msg.sender] exists
