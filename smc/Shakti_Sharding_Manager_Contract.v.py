@@ -314,8 +314,10 @@ def release_collator() -> bool:
         [msg.sender].deregistered + self.collator_lockup_length
         
     send(self.collator_address, self.collator_deposit)
-    self.collator_registry[self.collator_address].pool_index = 0
-    self.collator_registry[self.collator_address].deregistered = 0
+    self.collator_registry[self.collator_address] = {
+        deregistered : 0,
+        pool_index : 0
+    }
 
     log.Release_collator(self.collator_registry[self.collator_address]\
         .pool_index, self.collator_address, \
@@ -375,8 +377,10 @@ def release_proposer() -> bool:
     send(self.proposer_address, self.proposer_registry\
         [self.proposer_address].balances)
         
-    self.proposer_registry[self.proposer_address].deregistered = 0
-    self.proposer_registry[self.proposer_address].balances = 0
+    self.proposer_registry[self.proposer_address] = {
+        deregistered = 0,
+        balances = 0
+    }
 
     log.Release_proposer(self.proposer_address, \
         self.proposer_registry[self.proposer_address].deregistered,\
