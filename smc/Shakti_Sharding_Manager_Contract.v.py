@@ -2,28 +2,25 @@
 # As well as the validator_manager_contract:
 # https://github.com/ethereum/py-evm/blob/sharding/evm/vm/forks/sharding/contracts/validator_manager.v.py
 
-# I've named it Shakti for a shorter name, that means the primordial cosmic energy
-# that upholds the phenomenal cosmos, which seems appropriate, given that the SMC
-# is managing "universes" of shards. For unambiguity where necessary it can be called
-# the Shakti contract or SMC.
-# https://en.wikipedia.org/wiki/Shakti
+# I've named it Nataraja, Lord of Dance, who as Shiva performing a dance 
+# of bliss in which creation is created, preserved and destroyed.
+# This name for the SMC seems appropriate, since it is managing 
+# "universes" of shards. For unambiguity where necessary it can be called
+# the Nataraja contract or the SMC.
 
 # Copyright: Unlicense, no rights reserved. Author: James Ray
-
-# Doesn't work: invalid top-level statement
-# import requests, json
 
 # FYI: see https://github.com/ethereum/vyper/blob/master/docs/logging.rst
 # Events
 CollationHeaderAdded: event({
-    shard_id: uint256,
+    shard_id: bytes[256] ,
     parent_hash: bytes32,
     chunk_root: bytes32,
     period: int128,
     height: int128,
     proposer_address: address,
     proposer_bid: uint256,
-    proposer_signature: bytes <= 8192, # 1024*8 for general signature schemes
+    proposer_signature: bytes[8192] , # 1024*8 for general signature schemes
 })
 
 Register_collator: event({
@@ -77,14 +74,16 @@ smc_address: address
 # The most significant byte of the shard ID, with most significant bit 0 for 
 # mainnet and 1 for testnet. Provisionally NETWORK_ID := 0b1000_0001 for the 
 # phase 1 testnet.
-network_ID: bytes <= 8
+network_ID: bytes[8]
+zero_address: address
+bytes30_of_zeros: bytes[240]
+shard_id_int128: int128
 
 # Number of shards
 shard_count: int128
 
 # Number of blocks in one period
 period_length: int128
-period_length_as_uint256: uint256
 
 # The lookahead time, denominated in periods, for eligible collators to perform 
 # windback and select proposals. Provisionally LOOKAHEAD_LENGTH := 4, 
@@ -112,6 +111,8 @@ proposer_lockup_length: int128
 pool_index_temp: int128
 proposer_address: address
 
+activate_collator_num: int128
+all_collator_slots_num: int128
 collator_pool: public({
     # array of active collator addresses
     collator_pool_arr: address[int128],
@@ -128,7 +129,9 @@ collator_pool: public({
 collation_header: public({
 # Sharding participants have light-client access to collation headers via the 
 # HeaderAdded logs produced by the addHeader method. The header fields are:
-    shard_id: uint256,  # pointer to shard
+    # shard_id: uint256,  # pointer to shard
+    # shard_id: bytes32
+    shard_id: bytes[256],
     parent_hash: bytes32,  # pointer to parent header
     chunk_root: bytes32, # pointer to collation body
     period: int128,
@@ -136,24 +139,28 @@ collation_header: public({
     proposer_address: address,
     proposer_bid: uint256,
     proposer_signature: bytes32,
-    collation_number: uint256,
 })#[bytes32][int128])
+
+# With each field as a bytes32 for concatentation prior to hashing
+# 8 members * 32 bytes/member * 8 bits/bytes = 2048
+collation_header_bytes: bytes[2048]
+header_hash: bytes32
 
 # from VMC: TODO: determine the signature of the above logs 
 # `Register_collator` and `Deregister_collator`
 
-collator_registry: public ({
+collator_registry: public({
     deregistered: int128,
     # deregistered is 0 for not yet deregistered collators.
     pool_index: int128
 }[address])
 
-proposer_registry: public ({
+proposer_registry: public({
     deregistered: int128,
     balances: wei_value
 }[address])
 
-collation_trees_struct: public ({
+collation_trees_struct: public({
     # The collation tree of a shard maps collation hashes to previous collation
     # hashes truncated to 24 bytes packed into a bytes32 with the collation
     # height in the last 8 bytes.
@@ -162,7 +169,7 @@ collation_trees_struct: public ({
     last_update_periods: int128[uint256]
 })
 
-availability_challenges_struct: public ({
+availability_challenges_struct: public({
     # availability_challenges:
     # availability challenges counter
     availability_challenges_len: int128
@@ -170,7 +177,6 @@ availability_challenges_struct: public ({
 
 @public
 def __init__():
-    #self.latest_block_number = convert(5353011, 'uint256')
     # Shards
     #self.smc_address = 
     self.network_ID = "10000001"
@@ -185,7 +191,7 @@ def __init__():
     self.collator_subsidy = 0.001 	# vETH
     self.collator_pool.collator_pool_len = 0		
     self.collator_pool.empty_slots_stack_top = 0
-
+    
     # Registries
     self.collator_deposit = 1000000000000000000000 		# 10^21 wei = 1000 ETH
     #collator_subsidy = 1000000000000000				# 10^15 wei = 0.001 ETH
@@ -194,6 +200,11 @@ def __init__():
     self.proposer_lockup_length = 48					# periods
     # 10 ** 20 wei = 100 ETH
     #self.deposit_size = 100000000000000000000
+    # 40 zeros after x, 4 bytes per digit, 160 bits
+    self.zero_address = 0x0000000000000000000000000000000000000000
+    # 60 zeros after x, 30 bytes
+    self.bytes30_of_zeros \
+        = "0x000000000000000000000000000000000000000000000000000000000000"
 
 #@private
 #def get_latest_block_number() -> uint256:
@@ -378,8 +389,8 @@ def release_proposer() -> bool:
         [self.proposer_address].balances)
         
     self.proposer_registry[self.proposer_address] = {
-        deregistered = 0,
-        balances = 0
+        deregistered : 0,
+        balances : 0
     }
 
     log.Release_proposer(self.proposer_address, \
@@ -387,18 +398,81 @@ def release_proposer() -> bool:
         self.proposer_registry[self.proposer_address].balances)
     
     return True
+   
+# These will reduce boilerplate code but require assigning the original
+# msg.sender from the calling function to a temporary variable before
+# passing this variable to these function, which adds complexity.
+# However, this is used in the 6 functions below, so should be done.
+@public
+def check_shard_id(shard_id: bytes[256]) -> bool:
+    # doesn't work:
+    # https://gitter.im/ethereum/vyper?at=5ac3508127c509a774d0df87
+    # Compiler bug: 'ByteArrayType' object has no attribute 'positional'
+    # Vyper doesn't support byte array comparisons,
+    # https://gitter.im/ethereum/vyper?at=5ac49ba32b9dfdbc3a54621f
+    assert convert(slice(shard_id, start = 0, len = 8), 'int128') == \
+        convert(0b10000001, 'int128')
+    # assert slice(shard_id, start = 8, len = 240) == self.bytes30_of_zeros
+    # self.shard_id_int128 = convert(slice(shard_ID, start = 247, len = 8)), \
+    #   'int128')
+    # assert self.shard_id_int128 <= 100 and self.shard_id_int128 > 0
+    return True
 
+#def check_sender_in_proposer_registry(original_sender: address)
+    
 # proposer_add_balance(uint256 shard_id) returns bool: Adds msg.value to the
 # balance of the proposer on shard_id, and returns True on success. Checks:
-
 #    Shard: shard_id against NETWORK_ID and SHARD_COUNT
 #    Authentication: proposer_registry[msg.sender] exists
-
+@public
+@payable
+def proposer_add_balance(shard_id: bytes[256]) -> bool:
+    assert self.check_shard_id(shard_id) == True
+    
+    # Again, this isn't the same as that it doesn't exist, TODO.
+    assert self.proposer_registry[msg.sender].balances != 0
+    
+    self.proposer_registry[msg.sender].balances += msg.value
+    
+    return True
+    
 # proposer_withdraw_balance(uint256 shard_id) returns bool: Withdraws the 
 # balance of a proposer on shard_id, and returns True on success. Checks:
 
 #    Shard: shard_id against NETWORK_ID and SHARD_COUNT
 #    Authentication: proposer_registry[msg.sender] exists
+#   proposer_lockup_length
+
+@public
+@payable
+def proposer_withdraw_balance(shard_id: bytes[256]) -> bool:
+    assert self.check_shard_id(shard_id) == True
+    
+    # Again, this isn't the same as that it doesn't exist, TODO.
+    assert self.proposer_registry[msg.sender].balances != 0
+    
+    self.proposer_address = msg.sender
+    
+    send(self.proposer_address, self.proposer_registry\
+        [self.proposer_address].balances)
+    
+    return True
+
+# Returns the current maximum index for collator mapping
+@private
+def get_collators_max_index() -> int128:
+    self.activate_collator_num = 0
+    self.all_collator_slots_num = self.collator_pool.collator_pool_len \
+        + self.collator_pool.empty_slots_stack_top
+    
+    # TODO: any better way to iterate the mapping?
+    for i in range(1024):
+        if i >= self.all_collator_slots_num:
+            break
+        if self.collator_pool.collator_pool_arr[i] != self.zero_address:
+        #if self.collator_registry.pool_index != 0
+            self.activate_collator_num += 1
+    return self.activate_collator_num + self.collator_pool.empty_slots_stack_top
 
 # Collation trees
 
@@ -406,21 +480,108 @@ def release_proposer() -> bool:
 # Uses the blockhash at block number (period - LOOKAHEAD_LENGTH) 
 # * PERIOD_LENGTH) and shard_id to pseudo-randomly select an eligible
 # collator from the collator pool, and returns the address of the 
-# eligible collator. Checks:
+# eligible collator. 
+# [TODO] Chance of being selected should be proportional to the collator's
+# deposit. Should be able to return a value for the current period or any 
+# future period up to.
+# Checks:
 #       Shard: shard_id against NETWORK_ID and SHARD_COUNT
 #        Period: period == floor(block.number / PERIOD_LENGTH)
 #        Non-empty pool: collator_pool_len > 0
 
-
+@public
+#@constant
+def get_eligible_collator(shard_id: bytes[256], period: uint256 ) -> address:
+    # This won't work if it's a constant function:
+    #assert self.check_shard_id(shard_id) == True
+    #assert slice(shard_id, start = 0, len = 8) == "10000001"
+    # assert slice(shard_id, start = 8, len = 240) == self.bytes30_of_zeros
+    # self.shard_id_int128 = convert(slice(shard_ID, start = 247, len = 8)), \
+    #   'int128')
+    # assert self.shard_id_int128 <= 100 and self.shard_id_int128 > 0    
+    assert uint256_ge(period, convert(self.lookahead_length, 'uint256'))
+    #assert period == floor(block.number / self.period_length)
+    assert period == convert(floor(block.number / self.period_length), 'uint256')
+    #assert convert(period, 'int128') == floor(block.number / self.period_length)
+    #assert uint256_le(
+    #    convert(uint256_mul(\
+    #        uint256_sub(period, convert(self.lookahead_length,'uint256')) \
+    #    , convert(self.period_length, 'uint256'))
+    #, convert(block.number, 'uint256')),'uint256')
+    assert self.collator_pool.collator_pool_len > 0
+    return self.collator_pool.collator_pool_arr[
+        convert(
+            uint256_mod(
+                convert(
+                    sha3(
+                        concat(
+                            # TODO: should check further if this can be 
+                            # further optimized or not e.g. be able to
+                            # get the proposer of one period earlier.
+                            # causes a compiler bug error: 'ByteArrayType'
+                            #  object has no attribute 'positional'
+                            # https://gitter.im/ethereum/vyper?at=5ac48ab31130fe3d369dabfb
+                            "tmp"#blockhash((convert(period, 'int128')\
+                            #    - self.lookahead_length) \
+                            #    * self.period_length)\
+                            #blockhash(uint256_mul(uint256_sub(period, \
+                            #    convert(self.lookahead_length, 'uint256')) \
+                            #, convert(self.period_length, 'uint256'))),
+                            , shard_id\
+                        )
+                    )
+                , 'uint256'),
+                # can't call this in a constant function
+                # despite this function being constant in the original
+                # validator_manager_contract,
+                # https://github.com/ethereum/py-evm/blob/sharding/evm/vm/forks/sharding/contracts/validator_manager.v.py
+                # it seems that the constant decorator may need to be removed,
+                # at least until another solution is found
+                convert(self.get_collators_max_index(), 'uint256'),
+            )
+        , 'int128')
+    ]
 
 # compute_header_hash(uint256 shard_id, bytes32 parent_hash, 
 #       bytes32 chunk_root, uint256 period, address proposer_address,
 #       uint256 proposer_bid) returns bytes32: Returns the header hash.
+@public
+def compute_header_hash(
+        _shard_id: bytes[256],
+        _parent_hash: bytes32,  # pointer to parent header
+        _chunk_root: bytes32, # pointer to collation body
+        _period: int128,
+        _height: int128,
+        _proposer_address: address,
+        _proposer_bid: uint256,
+        _proposer_signature: bytes32,
+    ) -> bytes32:
+    assert self.check_shard_id(_shard_id) == True
+    # Check if the header is valid
+    assert block.number >= self.period_length
+    assert _period == floor(block.number / self.period_length)
+    #TODO: from VMC, replace
+    #assert period_start_prevhash == blockhash(expected_period_number \
+        #* self.period_length - 1)
+    # Maybe with:
+    # assert period_start_prevhash == blockhash(period * self.period_length - 1)
+    # Check if this header already exists
+    self.collation_header_bytes = concat(
+        _shard_id,
+        _parent_hash,
+        _chunk_root,
+        convert(_period, 'bytes32'),
+        convert(_height, 'bytes32'),
+        convert(_proposer_address, 'bytes32'),
+        convert(_proposer_bid, 'bytes32'),
+        _proposer_signature
+    )
+    
+    self.header_hash = sha3(self.collation_header_bytes)
 
+    return self.header_hash
 
-
-
-# add_header(uint256 shard_id, bytes32 parent_hash, bytes32 chunk_root,
+# add_header(bytes32 shard_id, bytes32 parent_hash, bytes32 chunk_root,
 #       uint256 period, address proposer_address, uint256 proposer_bid,
 #       bytes proposer_signature) returns bool: 
 # Calls compute_header_hash(...), extends the collation tree of shard_id,
@@ -440,7 +601,7 @@ def release_proposer() -> bool:
 
 #Slashing
 
-# proposal_commitment_slashing(uint256 shard_id, bytes32 collation_hash,
+# proposal_commitment_slashing(bytes32 shard_id, bytes32 collation_hash,
 #       uint256 height, uint256 left_hash, uint256 right_hash, 
 #       bytes signature) returns bool: 
 # Slashes a collator that called add_header with a non-committed 
