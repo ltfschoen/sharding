@@ -2,9 +2,9 @@
 # As well as the validator_manager_contract:
 # https://github.com/ethereum/py-evm/blob/sharding/evm/vm/forks/sharding/contracts/validator_manager.v.py
 
-# I've named it Nataraja, Lord of Dance, who as Shiva performing a dance 
+# A nickname for it could be Nataraja, Lord of Dance, who as Shiva performing a dance 
 # of bliss in which creation is created, preserved and destroyed.
-# This name for the SMC seems appropriate, since it is managing 
+# This nickname for the SMC seems appropriate, since it is managing 
 # "universes" of shards. For unambiguity where necessary it can be called
 # the Nataraja contract or the SMC.
 
