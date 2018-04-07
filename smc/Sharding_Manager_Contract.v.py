@@ -2,15 +2,9 @@
 # As well as the validator_manager_contract:
 # https://github.com/ethereum/py-evm/blob/sharding/evm/vm/forks/sharding/contracts/validator_manager.v.py
 
-# A nickname for it could be Nataraja, Lord of Dance, who as Shiva performing a dance 
-# of bliss in which creation is created, preserved and destroyed.
-# This nickname for the SMC seems appropriate, since it is managing 
-# "universes" of shards. For unambiguity where necessary it can be called
-# the Nataraja contract or the SMC.
-
 # Copyright: Unlicense, no rights reserved. Author: James Ray
 
-# FYI: see https://github.com/ethereum/vyper/blob/master/docs/logging.rst
+# On events, see https://github.com/ethereum/vyper/blob/master/docs/logging.rst
 # Events
 CollationHeaderAdded: event({
     shard_id: bytes[256] ,
@@ -618,3 +612,10 @@ def compute_header_hash(
 #    availability_challenge(): TBD
 #    availability_response(): TBD
 #    availability_slashing(): TBD
+
+# A nickname for this contract could be Nataraja, the Lord of Dance, 
+# who is a symbolic form of God performing a dance 
+# of bliss in which creation is created, preserved and dissolved.
+# This nickname for the SMC seems appropriate, since it is managing 
+# "universes" of shards. For unambiguity where necessary it can be called
+# the Nataraja contract or the SMC.
