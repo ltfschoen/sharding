@@ -22,7 +22,7 @@
 <li><code>VALIDATOR_MANAGER_ADDRESS</code>: ????</li>
 <li><code>USED_RECEIPT_STORE_ADDRESS</code>: ????</li>
 <li><code>SIG_GASLIMIT</code>: 40000</li>
-<li><code>COLLATOR_REWARD</code>: 0.002</li>
+<li><code>NOTARY_REWARD</code>: 0.002</li>
 <li><code>PERIOD_LENGTH</code>: 5 blocks</li>
 <li><code>SHUFFLING_CYCLE</code>: 2500 blocks</li>
 </ul>
@@ -76,7 +76,7 @@
 
 <ul>
 <li>Execute each transaction in the tree pointed to by <code>tx_list_root</code> in order</li>
-<li>Assign a reward of <code>COLLATOR_REWARD</code> to the coinbase</li>
+<li>Assign a reward of <code>NOTARY_REWARD</code> to the coinbase</li>
 </ul>
 
 <h3>Receipt-consuming transactions</h3>
@@ -132,7 +132,7 @@
 
 <h3>Rationale</h3>
 
-<p>This allows for a quick and dirty form of medium-security proof of stake sharding in a way that achieves quadratic scaling through separation of concerns between block proposers and collators, and thereby increases throughput by ~100x without too many changes to the protocol or software architecture. This is intended to serve as the first phase in a multi-phase plan to fully roll out quadratic sharding, the latter phases of which are described below.</p>
+<p>This allows for a quick and dirty form of medium-security proof of stake sharding in a way that achieves quadratic scaling through separation of concerns between block proposers and notaries, and thereby increases throughput by ~100x without too many changes to the protocol or software architecture. This is intended to serve as the first phase in a multi-phase plan to fully roll out quadratic sharding, the latter phases of which are described below.</p>
 
 <h3>Subsequent phases</h3>
 
