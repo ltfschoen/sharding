@@ -8,13 +8,13 @@ The shards are run on a simple longest-chain-rule proof of stake system, where t
 
 Most users of the sharding system will run both (i) either a full (O(c) resource requirements) or light (O(log(c)) resource requirements) node on the main chain, and (ii) a "shard client" which talks to the main chain node via RPC (this client is assumed to be trusted because it's also running on the user's computer) and which can also be used as a light client for any shard, as a full client for any specific shard (the user would have to specify that they are "watching" a specific shard) or as a validator node. In all cases, the storage and computation requirements for a shard client will also not exceed O(c) (unless the user chooses to specify that they are watching _every_ shard; block explorers and large exchanges may want to do this).
 
-In this document, the term `Collation` is used to differentiate from `Block` because (i) they are different RLP objects: transactions are level 0 objects, collations are level 1 objects that package transactions, and blocks are level 2 objects that package collation (headers); (ii) it’s clearer in context of sharding. Basically, `Collation` must consist of `CollationHeader` and `TransactionList`; `Witness` and the detailed format of `Collation` will be defined in **Stateless clients** section. `Collator` is the collation proposer sampled by `getEligibleProposer` function of **Validator Manager Contract** in the main chain; the mechanism will be introduced in the following sections.
+In this document, the term `Collation` is used to differentiate from `Block` because (i) they are different RLP objects: transactions are level 0 objects, collations are level 1 objects that package transactions, and blocks are level 2 objects that package collation (headers); (ii) it’s clearer in context of sharding. Basically, `Collation` must consist of `CollationHeader` and `TransactionList`; `Witness` and the detailed format of `Collation` will be defined in **Stateless clients** section. `Notary` is the collation proposer sampled by `getEligibleProposer` function of **Validator Manager Contract** in the main chain; the mechanism will be introduced in the following sections.
 
 | Main Chain                                 | Shard Chain            |
 |--------------------------------------------|------------------------|
 | Block                                      | Collation              |
 | BlockHeader                                | CollationHeader        |
-| Block Proposer (or `Miner` in PoW chain)   | Collator               |
+| Block Proposer (or `Miner` in PoW chain)   | Notary                 |
 
 ## Quadratic sharding
 
@@ -25,7 +25,7 @@ In this document, the term `Collation` is used to differentiate from `Block` bec
 * `COLLATION_GASLIMIT`: 10,000,000 gas
 * `SHARD_COUNT`: 100
 * `SIG_GASLIMIT`: 40000 gas
-* `COLLATOR_REWARD`: 0.001 ETH
+* `NOTARY_REWARD`: 0.001 ETH
 
 ### Validator Manager Contract (VMC)
 
@@ -101,7 +101,7 @@ A **collation** is valid if: (i) its collation header is valid; (ii) executing t
 The state transition process for executing a collation is as follows:
 
 * execute each transaction in the tree pointed to by `transaction_root` in order; and
-* assign a reward of `COLLATOR_REWARD` to the coinbase.
+* assign a reward of `NOTARY_REWARD` to the coinbase.
 
 ### Details of `getEligibleProposer`
 
@@ -139,9 +139,9 @@ A validator is only given a few minutes' notice (precisely, `LOOKAHEAD_PERIODS *
 
 ### Data format
 
-We modify the format of a transaction so that the transaction must specify an **access list** enumerating the parts of the state that it can access (we describe this more precisely later; for now consider this informally as a list of addresses). Any attempt to read or write to any state outside of a transaction's specified access list during VM execution returns an error. This prevents attacks where someone sends a transaction that spends 5 million cycles of gas on random execution, then attempts to access a random account for which the transaction sender and the collator do not have a witness, preventing the collator from including the transaction and thereby wasting the collator's time.
+We modify the format of a transaction so that the transaction must specify an **access list** enumerating the parts of the state that it can access (we describe this more precisely later; for now consider this informally as a list of addresses). Any attempt to read or write to any state outside of a transaction's specified access list during VM execution returns an error. This prevents attacks where someone sends a transaction that spends 5 million cycles of gas on random execution, then attempts to access a random account for which the transaction sender and the notary do not have a witness, preventing the notary from including the transaction and thereby wasting the notary's time.
 
-_Outside_ of the signed body of the transaction, but packaged along with the transaction, the transaction sender must specify a "witness", an RLP-encoded list of Merkle tree nodes that provides the portions of the state that the transaction specifies in its access list. This allows the collator to process the transaction with only the state root. When publishing the collation, the collator also sends a witness for the entire collation.
+_Outside_ of the signed body of the transaction, but packaged along with the transaction, the transaction sender must specify a "witness", an RLP-encoded list of Merkle tree nodes that provides the portions of the state that the transaction specifies in its access list. This allows the notary to process the transaction with only the state root. When publishing the collation, the notary also sends a witness for the entire collation.
 
 #### Transaction package format
 
@@ -291,7 +291,7 @@ while len(txpool) > 0:
     txpool.pop(0)
 ```
 
-At the end, there is an additional step, finalizing the collation (to give the collator the reward, which is `COLLATOR_REWARD` ETH). This requires asking the network for a Merkle branch for the collator's account. When the network replies with this, the post-state root after applying the reward, as well as the fees, can be calculated. The collator can then package up the collation, of the form (header, txs, witness), where the witness is the union of the witnesses of all the transactions and the branch for the collator's account.
+At the end, there is an additional step, finalizing the collation (to give the notary the reward, which is `NOTARY_REWARD` ETH). This requires asking the network for a Merkle branch for the notary's account. When the network replies with this, the post-state root after applying the reward, as well as the fees, can be calculated. The notary can then package up the collation, of the form (header, txs, witness), where the witness is the union of the witnesses of all the transactions and the branch for the notary's account.
 
 ## Protocol changes
 
@@ -368,7 +368,7 @@ To be finalized.
 
 ## Subsequent phases
 
-This allows for a quick and dirty form of medium-security proof of stake sharding in a way that achieves quadratic scaling through separation of concerns between block proposers and collators, and thereby increases throughput by ~100x without too many changes to the protocol or software architecture. This is intended to serve as the first phase in a multi-phase plan to fully roll out quadratic sharding, the latter phases of which are described below.
+This allows for a quick and dirty form of medium-security proof of stake sharding in a way that achieves quadratic scaling through separation of concerns between block proposers and notaries, and thereby increases throughput by ~100x without too many changes to the protocol or software architecture. This is intended to serve as the first phase in a multi-phase plan to fully roll out quadratic sharding, the latter phases of which are described below.
 
 * **Phase 2 (two-way pegging)**: see section on `USED_RECEIPT_STORE`, still to be written
 * **Phase 3, option a**: require collation headers to be added in as uncles instead of as transactions
